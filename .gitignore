@@ -1,0 +1,17 @@
+# Build results
+bin/
+obj/
+Debug/
+Release/
+
+# Visual Studio
+.vs/
+*.user
+
+# Logs
+*.log
+
+# Environment files - NEVER commit API keys!
+appsettings.json
+appsettings.Production.json
+.env

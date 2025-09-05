@@ -1,0 +1,141 @@
+@model WeatherAggregatorDemo.Models.WeatherViewModel
+@{
+    ViewData["Title"] = "Väder för " + Model.Location;
+}
+
+<div class="header">
+    <h1>🌤️ Nordic Weather</h1>
+    <p>Aggregerad väderdata från SMHI, Met.no och OpenWeatherMap</p>
+    
+    <form method="get" style="margin-top: 20px;">
+        <div style="display: flex; gap: 10px; justify-content: center; align-items: center;">
+            <input type="text" name="location" value="@Model.Location" placeholder="Sök stad (ex. Stockholm, Oslo, Helsinki)" 
+                   style="padding: 12px 20px; border: 2px solid #74b9ff; border-radius: 25px; font-size: 1em; width: 300px; outline: none;" />
+            <button type="submit" style="padding: 12px 20px; background: #74b9ff; color: white; border: none; border-radius: 25px; cursor: pointer; font-size: 1em;">
+                🔍 Sök
+            </button>
+        </div>
+    </form>
+</div>
+
+<div class="time-info">
+    <div class="current-time">Nu: @Model.CurrentTime.ToString("HH:mm")</div>
+    <div class="showing-time">Visar väder för: @Model.ShowingHour</div>
+    <div style="font-size: 0.8em; color: #636e72; margin-top: 5px;">📍 @Model.Location</div>
+</div>
+
+@if (Model.WeatherData != null)
+{
+    <div class="weather-card" onclick="toggleProviderData()">
+        <div class="weather-icon">@GetWeatherIcon(Model.WeatherData.MostCommonDescription)</div>
+        <div class="temperature">@Model.WeatherData.AverageTemperature.ToString("F1")°C</div>
+        <div class="description">@Model.WeatherData.MostCommonDescription</div>
+        
+        <div class="details">
+            <div class="detail-item">
+                <div class="detail-label">💨 Vind</div>
+                <div class="detail-value">@Model.WeatherData.AverageWindSpeed.ToString("F1") m/s</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">💧 Luftfuktighet</div>
+                <div class="detail-value">@Model.WeatherData.AverageHumidity%</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">🌧️ Nederbörd</div>
+                <div class="detail-value">@Model.WeatherData.TotalPrecipitation.ToString("F1") mm</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">🔽 Lufttryck</div>
+                <div class="detail-value">@Model.WeatherData.AverageAirPressure hPa</div>
+            </div>
+        </div>
+        
+        <button id="toggleBtn" class="toggle-btn" onclick="event.stopPropagation(); toggleProviderData();">
+            Visa individuell data från providers
+        </button>
+        
+        <div style="margin-top: 15px; text-align: center;">
+            <div style="display: inline-block; background: rgba(116, 185, 255, 0.15); border: 2px solid #74b9ff; border-radius: 15px; padding: 8px 16px; font-size: 0.9em; color: #2d3436;">
+                <strong>Säkerhet:</strong> @Model.WeatherData.PrognosSakerhet
+            </div>
+        </div>
+    </div>
+    
+    <div id="providerData" class="provider-data">
+        <h3 style="margin-top: 0; color: #2d3436;">📊 Data från individuella providers</h3>
+        @foreach (var provider in Model.WeatherData.ProviderData.OrderBy(p => p.Provider))
+        {
+            <div class="provider-item">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    @{
+                        string logoFile = provider.Provider.ToLower() switch {
+                            "smhi" => "smhi.png",
+                            "metno" => "yr.png", 
+                            "openweathermap" => "openweather.jpg",
+                            _ => "smhi.png"
+                        };
+                    }
+                    <img src="~/logos&weather/@logoFile" 
+                         alt="@GetProviderDisplayName(provider.Provider)" 
+                         title="@GetProviderDisplayName(provider.Provider)"
+                         style="width: 50px; height: 50px; object-fit: contain; border-radius: 8px; background: white; padding: 6px; border: 1px solid #e9ecef;"
+                         onerror="this.innerHTML='@GetProviderDisplayName(provider.Provider)'; this.style.display='flex'; this.style.alignItems='center'; this.style.justifyContent='center'; this.style.fontSize='12px';" />
+                    <div>
+                        <div style="font-size: 0.9em; color: #636e72;">@provider.Description</div>
+                    </div>
+                </div>
+                <div>
+                    <div class="provider-temp">@provider.Temperature.ToString("F1")°C</div>
+                    <div style="font-size: 0.8em; color: #636e72;">💨 @provider.WindSpeed.ToString("F1") m/s</div>
+                </div>
+            </div>
+        }
+        
+        <div style="margin-top: 15px; padding: 15px; background: rgba(116, 185, 255, 0.1); border-radius: 8px; font-size: 0.9em; color: #636e72;">
+            <strong>💡 Konceptet:</strong> Medelvärdet skapas från alla @Model.WeatherData.ProviderData.Count providers ovan. 
+            Detta ger mer tillförlitlig väderprognos än att bara använda en källa.
+        </div>
+    </div>
+}
+else
+{
+    <div class="weather-card">
+        <div class="weather-icon">❓</div>
+        <div class="description">Ingen väderdata tillgänglig för @Model.ShowingHour</div>
+    </div>
+}
+
+@functions {
+    string GetWeatherIcon(string description)
+    {
+        if (string.IsNullOrEmpty(description)) return "❓";
+        
+        var desc = description.ToLower();
+        
+        if (desc.Contains("sol") || desc.Contains("klar") || desc.Contains("clear"))
+            return "☀️";
+        if (desc.Contains("moln") || desc.Contains("cloud"))
+            return "☁️";
+        if (desc.Contains("regn") || desc.Contains("rain") || desc.Contains("dugg"))
+            return "🌧️";
+        if (desc.Contains("snö") || desc.Contains("snow"))
+            return "❄️";
+        if (desc.Contains("dimma") || desc.Contains("dis") || desc.Contains("mist"))
+            return "🌫️";
+        if (desc.Contains("åska") || desc.Contains("thunder"))
+            return "⛈️";
+        
+        return "🌤️"; // Default
+    }
+    
+    string GetProviderDisplayName(string provider)
+    {
+        return provider switch
+        {
+            "smhi" => "SMHI",
+            "metno" => "YR.no", 
+            "openweathermap" => "OpenWeatherMap",
+            _ => provider
+        };
+    }
+}
